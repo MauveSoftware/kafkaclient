@@ -5,7 +5,7 @@ import (
 )
 
 type topicConsumer struct {
-	client   *Client
+	client   *client
 	topic    string
 	consumer sarama.PartitionConsumer
 	done     chan struct{}

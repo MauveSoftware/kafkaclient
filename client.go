@@ -9,7 +9,7 @@ import (
 )
 
 // NewClient returns a new client connected to the specified kafka cluster
-func NewClient(address string) (*Client, error) {
+func NewClient(address string) (Client, error) {
 	cfg := sarama.NewConfig()
 	cfg.Consumer.Return.Errors = true
 	cfg.Consumer.Group.Heartbeat.Interval = 10 * time.Second
@@ -29,7 +29,7 @@ func NewClient(address string) (*Client, error) {
 		return nil, fmt.Errorf("could create consumer: %w", err)
 	}
 
-	return &Client{
+	return &client{
 		client:         c,
 		consumer:       con,
 		messages:       make(chan *Message),
@@ -39,7 +39,27 @@ func NewClient(address string) (*Client, error) {
 }
 
 // Client interacts with the kafka cluster
-type Client struct {
+type Client interface {
+	// Topics gets a list of topics from the kafka cluster
+	Topics(filter TopicFilter) ([]string, error)
+
+	// ConsumeTopic starts consuming messages from the topic
+	ConsumeTopic(topic string, offset int64) error
+
+	// Close disconnects from the kafka cluster
+	Close()
+
+	// CreateEmiter creates an emiter to send messages to topic
+	CreateEmiter(topic string) (Emiter, error)
+
+	// Erorrs receives error messages
+	Errors() <-chan *sarama.ConsumerError
+
+	// Messages receives messages consumed from topics
+	Messages() <-chan *Message
+}
+
+type client struct {
 	client         sarama.Client
 	consumer       sarama.Consumer
 	messages       chan *Message
@@ -50,8 +70,8 @@ type Client struct {
 // TopicFilter determines if a topic should be included in the result
 type TopicFilter func(string) bool
 
-// Topics gets a list of topics from the kafka cluster
-func (cl *Client) Topics(filter TopicFilter) ([]string, error) {
+// Topics implements Client.Topics
+func (cl *client) Topics(filter TopicFilter) ([]string, error) {
 	topics, err := cl.consumer.Topics()
 	if err != nil {
 		return nil, fmt.Errorf("could not get topic list: %w", err)
@@ -67,8 +87,8 @@ func (cl *Client) Topics(filter TopicFilter) ([]string, error) {
 	return filtered, nil
 }
 
-// ConsumeTopic starts consuming messages from the topic
-func (cl *Client) ConsumeTopic(topic string, offset int64) error {
+// ConsumeTopic implements Client.ConsumeTopic
+func (cl *client) ConsumeTopic(topic string, offset int64) error {
 	logrus.Info("Consuming topic ", topic)
 	c, err := cl.consumer.ConsumePartition(topic, 0, offset)
 	if err != nil {
@@ -94,8 +114,8 @@ func (cl *Client) ConsumeTopic(topic string, offset int64) error {
 	return nil
 }
 
-// Close disconnects from the kafka cluster
-func (cl *Client) Close() {
+// Close implements Client.Close
+func (cl *client) Close() {
 	for _, tc := range cl.topicConsumers {
 		logrus.Infof("Closing kafka consumer for topic %s", tc.topic)
 		tc.close()
@@ -107,18 +127,18 @@ func (cl *Client) Close() {
 	close(cl.messages)
 }
 
-// Erorrs receives error messages
-func (cl *Client) Errors() <-chan *sarama.ConsumerError {
+// Erorrs implements Client.Errors
+func (cl *client) Errors() <-chan *sarama.ConsumerError {
 	return cl.errors
 }
 
-// Messages receives messages consumed from topics
-func (cl *Client) Messages() <-chan *Message {
+// Messages implements Client.Messages
+func (cl *client) Messages() <-chan *Message {
 	return cl.messages
 }
 
-// CreateEmiter creates an emiter to send messages to topic
-func (cl *Client) CreateEmiter(topic string) (Emiter, error) {
+// CreateEmiter implements Client.CreateEmiter
+func (cl *client) CreateEmiter(topic string) (Emiter, error) {
 	prod, err := sarama.NewSyncProducerFromClient(cl.client)
 	if err != nil {
 		return nil, fmt.Errorf("could create consumer: %w", err)

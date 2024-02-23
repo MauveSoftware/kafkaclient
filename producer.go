@@ -10,7 +10,7 @@ type Emiter interface {
 
 type emiter struct {
 	topic    string
-	cl       *Client
+	cl       *client
 	producer sarama.SyncProducer
 }
 
