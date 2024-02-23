@@ -2,13 +2,16 @@ package kafkaclient
 
 import (
 	"github.com/IBM/sarama"
+	"github.com/MauveSoftware/kafkaclient/offset"
 )
 
 type topicConsumer struct {
-	client   *client
-	topic    string
-	consumer sarama.PartitionConsumer
-	done     chan struct{}
+	client    *client
+	topic     string
+	partition int32
+	offsets   offset.Store
+	consumer  sarama.PartitionConsumer
+	done      chan struct{}
 }
 
 func (tc *topicConsumer) consume() {
@@ -21,6 +24,7 @@ func (tc *topicConsumer) consume() {
 				Offset:  msg.Offset,
 				Key:     msg.Key,
 			}
+			tc.offsets.Update(tc.topic, tc.partition, msg.Offset)
 		case err := <-tc.consumer.Errors():
 			tc.client.errors <- err
 		case <-tc.done:

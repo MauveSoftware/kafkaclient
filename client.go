@@ -5,10 +5,12 @@ import (
 	"time"
 
 	"github.com/IBM/sarama"
+
+	"github.com/MauveSoftware/kafkaclient/offset"
 )
 
 // NewClient returns a new client connected to the specified kafka cluster
-func NewClient(address string) (Client, error) {
+func NewClient(address string, offsets offset.Store) (Client, error) {
 	cfg := newConfig()
 
 	logger.Infof("Connecting to kafka on %s", address)
@@ -25,6 +27,7 @@ func NewClient(address string) (Client, error) {
 	return &client{
 		client:         c,
 		consumer:       con,
+		offsets:        offsets,
 		messages:       make(chan *Message),
 		errors:         make(chan *sarama.ConsumerError),
 		topicConsumers: make([]*topicConsumer, 0),
@@ -36,6 +39,7 @@ func newConfig() *sarama.Config {
 	cfg.Consumer.Return.Errors = true
 	cfg.Consumer.Group.Heartbeat.Interval = 10 * time.Second
 	cfg.Consumer.Group.Session.Timeout = 5 * time.Minute
+
 	cfg.Producer.Partitioner = sarama.NewRandomPartitioner
 	cfg.Producer.RequiredAcks = sarama.WaitForAll
 	cfg.Producer.Return.Successes = true
@@ -52,7 +56,7 @@ type Client interface {
 	Partitions(topic string) ([]int32, error)
 
 	// ConsumeTopic starts consuming messages from the topic
-	ConsumeTopic(topic string, partition int32, offset int64) error
+	ConsumeTopic(topic string, partition int32) error
 
 	// Close disconnects from the kafka cluster
 	Close()
@@ -70,6 +74,7 @@ type Client interface {
 type client struct {
 	client         sarama.Client
 	consumer       sarama.Consumer
+	offsets        offset.Store
 	messages       chan *Message
 	errors         chan *sarama.ConsumerError
 	topicConsumers []*topicConsumer
@@ -101,23 +106,35 @@ func (cl *client) Partitions(topic string) ([]int32, error) {
 }
 
 // ConsumeTopic implements Client.ConsumeTopic
-func (cl *client) ConsumeTopic(topic string, partition int32, offset int64) error {
+func (cl *client) ConsumeTopic(topic string, partition int32) error {
 	logger.Infof("Consuming topic %s", topic)
+
+	offset, err := cl.offsets.Next(topic, partition)
+	if err != nil {
+		return fmt.Errorf("error while determining offset: %w", err)
+	}
+
+	return cl.consumeTopic(topic, partition, offset)
+}
+
+func (cl *client) consumeTopic(topic string, partition int32, offset int64) error {
 	c, err := cl.consumer.ConsumePartition(topic, partition, offset)
 	if err != nil {
 		if err == sarama.ErrOffsetOutOfRange && offset != sarama.OffsetNewest {
 			logger.Warnf("could not consume topic %s with offset %d (out of range). trying to get newest messages.", topic, offset)
-			return cl.ConsumeTopic(topic, partition, sarama.OffsetNewest)
+			return cl.consumeTopic(topic, partition, sarama.OffsetNewest)
 		}
 
 		return fmt.Errorf("could not consume topic %s: %w", topic, err)
 	}
 
 	tc := &topicConsumer{
-		consumer: c,
-		client:   cl,
-		topic:    topic,
-		done:     make(chan struct{}),
+		consumer:  c,
+		client:    cl,
+		topic:     topic,
+		partition: partition,
+		offsets:   cl.offsets,
+		done:      make(chan struct{}),
 	}
 
 	go tc.consume()
@@ -154,7 +171,7 @@ func (cl *client) Messages() <-chan *Message {
 func (cl *client) CreateEmiter(topic string) (Emiter, error) {
 	prod, err := sarama.NewSyncProducerFromClient(cl.client)
 	if err != nil {
-		return nil, fmt.Errorf("could create consumer: %w", err)
+		return nil, fmt.Errorf("could not create producer: %w", err)
 	}
 
 	return &emiter{
