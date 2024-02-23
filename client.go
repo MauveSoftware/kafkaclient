@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/IBM/sarama"
-	"github.com/sirupsen/logrus"
 )
 
 // NewClient returns a new client connected to the specified kafka cluster
@@ -18,7 +17,7 @@ func NewClient(address string) (Client, error) {
 	cfg.Producer.RequiredAcks = sarama.WaitForAll
 	cfg.Producer.Return.Successes = true
 
-	logrus.Infof("Connecting to kafka on %s", address)
+	logger.Infof("Connecting to kafka on %s", address)
 	c, err := sarama.NewClient([]string{address}, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to kafka: %w", err)
@@ -89,11 +88,11 @@ func (cl *client) Topics(filter TopicFilter) ([]string, error) {
 
 // ConsumeTopic implements Client.ConsumeTopic
 func (cl *client) ConsumeTopic(topic string, offset int64) error {
-	logrus.Info("Consuming topic ", topic)
+	logger.Infof("Consuming topic %s", topic)
 	c, err := cl.consumer.ConsumePartition(topic, 0, offset)
 	if err != nil {
 		if err == sarama.ErrOffsetOutOfRange && offset != sarama.OffsetNewest {
-			logrus.Warnf("could not consume topic %s with offset %d (out of range). trying to get newest messages.", topic, offset)
+			logger.Warnf("could not consume topic %s with offset %d (out of range). trying to get newest messages.", topic, offset)
 			return cl.ConsumeTopic(topic, sarama.OffsetNewest)
 		}
 
@@ -117,7 +116,7 @@ func (cl *client) ConsumeTopic(topic string, offset int64) error {
 // Close implements Client.Close
 func (cl *client) Close() {
 	for _, tc := range cl.topicConsumers {
-		logrus.Infof("Closing kafka consumer for topic %s", tc.topic)
+		logger.Infof("Closing kafka consumer for topic %s", tc.topic)
 		tc.close()
 	}
 
