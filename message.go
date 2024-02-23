@@ -11,6 +11,6 @@ type Message struct {
 	// Offset is the offset of the message
 	Offset int64
 
-	// Key identifies the message
+	// Key is the message key
 	Key []byte
 }

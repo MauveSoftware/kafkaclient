@@ -47,8 +47,11 @@ type Client struct {
 	topicConsumers []*topicConsumer
 }
 
+// TopicFilter determines if a topic should be included in the result
+type TopicFilter func(string) bool
+
 // Topics gets a list of topics from the kafka cluster
-func (cl *Client) Topics(filter func(string) bool) ([]string, error) {
+func (cl *Client) Topics(filter TopicFilter) ([]string, error) {
 	topics, err := cl.consumer.Topics()
 	if err != nil {
 		return nil, fmt.Errorf("could not get topic list: %w", err)
