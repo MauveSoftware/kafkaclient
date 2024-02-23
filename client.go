@@ -9,13 +9,7 @@ import (
 
 // NewClient returns a new client connected to the specified kafka cluster
 func NewClient(address string) (Client, error) {
-	cfg := sarama.NewConfig()
-	cfg.Consumer.Return.Errors = true
-	cfg.Consumer.Group.Heartbeat.Interval = 10 * time.Second
-	cfg.Consumer.Group.Session.Timeout = 5 * time.Minute
-	cfg.Producer.Partitioner = sarama.NewRandomPartitioner
-	cfg.Producer.RequiredAcks = sarama.WaitForAll
-	cfg.Producer.Return.Successes = true
+	cfg := newConfig()
 
 	logger.Infof("Connecting to kafka on %s", address)
 	c, err := sarama.NewClient([]string{address}, cfg)
@@ -37,10 +31,25 @@ func NewClient(address string) (Client, error) {
 	}, nil
 }
 
+func newConfig() *sarama.Config {
+	cfg := sarama.NewConfig()
+	cfg.Consumer.Return.Errors = true
+	cfg.Consumer.Group.Heartbeat.Interval = 10 * time.Second
+	cfg.Consumer.Group.Session.Timeout = 5 * time.Minute
+	cfg.Producer.Partitioner = sarama.NewRandomPartitioner
+	cfg.Producer.RequiredAcks = sarama.WaitForAll
+	cfg.Producer.Return.Successes = true
+
+	return cfg
+}
+
 // Client interacts with the kafka cluster
 type Client interface {
 	// Topics gets a list of topics from the kafka cluster
 	Topics(filter TopicFilter) ([]string, error)
+
+	// Partitions returns the partitions for a topic
+	Partitions(topic string) ([]int32, error)
 
 	// ConsumeTopic starts consuming messages from the topic
 	ConsumeTopic(topic string, partition int32, offset int64) error
@@ -84,6 +93,11 @@ func (cl *client) Topics(filter TopicFilter) ([]string, error) {
 	}
 
 	return filtered, nil
+}
+
+// Partitions implements Client.Partitions
+func (cl *client) Partitions(topic string) ([]int32, error) {
+	return cl.client.Partitions(topic)
 }
 
 // ConsumeTopic implements Client.ConsumeTopic
