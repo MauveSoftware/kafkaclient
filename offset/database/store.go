@@ -46,7 +46,7 @@ func (o *databaseStore) Next(topic string, partition int32) (int64, error) {
 		Partition: partition,
 	}).FirstOrCreate(&offset).Error
 	if err != nil {
-		return 0, fmt.Errorf("could not get offset for topic %s", topic, err)
+		return 0, fmt.Errorf("could not get offset for topic %s: %w", topic, err)
 	}
 
 	k := key{
