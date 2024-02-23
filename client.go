@@ -87,9 +87,9 @@ func (cl *client) Topics(filter TopicFilter) ([]string, error) {
 }
 
 // ConsumeTopic implements Client.ConsumeTopic
-func (cl *client) ConsumeTopic(topic string, offset int64) error {
+func (cl *client) ConsumeTopic(topic string, partition int32, offset int64) error {
 	logger.Infof("Consuming topic %s", topic)
-	c, err := cl.consumer.ConsumePartition(topic, 0, offset)
+	c, err := cl.consumer.ConsumePartition(topic, partition, offset)
 	if err != nil {
 		if err == sarama.ErrOffsetOutOfRange && offset != sarama.OffsetNewest {
 			logger.Warnf("could not consume topic %s with offset %d (out of range). trying to get newest messages.", topic, offset)

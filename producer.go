@@ -5,7 +5,7 @@ import "github.com/IBM/sarama"
 // Emiter does emit messages to kafka
 type Emiter interface {
 	// EmitMessage emits a message to a kafka topic
-	EmitMessage(b []byte) error
+	EmitMessage(b []byte, partition int32) error
 }
 
 type emiter struct {
@@ -15,10 +15,10 @@ type emiter struct {
 }
 
 // EmitMessage implements Emiter.EmitMessage
-func (me *emiter) EmitMessage(b []byte) error {
+func (me *emiter) EmitMessage(b []byte, partition int32) error {
 	_, _, err := me.producer.SendMessage(&sarama.ProducerMessage{
 		Topic:     me.topic,
-		Partition: -1,
+		Partition: partition,
 		Value:     sarama.ByteEncoder(b),
 	})
 
