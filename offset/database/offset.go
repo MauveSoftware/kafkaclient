@@ -1,7 +1,8 @@
 package database
 
 type Offset struct {
-	Topic     string `gorm:"primaryKey"`
-	Partition int32  `gorm:"primaryKey;autoIncrement:false"`
+	ID        uint64
+	Topic     string
+	Partition int32
 	Offset    int64
 }
