@@ -43,7 +43,7 @@ type Client interface {
 	Topics(filter TopicFilter) ([]string, error)
 
 	// ConsumeTopic starts consuming messages from the topic
-	ConsumeTopic(topic string, offset int64) error
+	ConsumeTopic(topic string, partition int32, offset int64) error
 
 	// Close disconnects from the kafka cluster
 	Close()
@@ -93,7 +93,7 @@ func (cl *client) ConsumeTopic(topic string, partition int32, offset int64) erro
 	if err != nil {
 		if err == sarama.ErrOffsetOutOfRange && offset != sarama.OffsetNewest {
 			logger.Warnf("could not consume topic %s with offset %d (out of range). trying to get newest messages.", topic, offset)
-			return cl.ConsumeTopic(topic, sarama.OffsetNewest)
+			return cl.ConsumeTopic(topic, partition, sarama.OffsetNewest)
 		}
 
 		return fmt.Errorf("could not consume topic %s: %w", topic, err)
