@@ -5,6 +5,9 @@ type Message struct {
 	// Topic specifies the name of the topic
 	Topic string
 
+	// Partition the message was stored in
+	Partition int32
+
 	// Payload is the payload of the message
 	Payload []byte
 

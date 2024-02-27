@@ -20,10 +20,11 @@ func (pc *partitionConsumer) consume() {
 		select {
 		case msg := <-pc.sPartConsumer.Messages():
 			pc.messages <- &Message{
-				Topic:   pc.topic,
-				Payload: msg.Value,
-				Offset:  msg.Offset,
-				Key:     msg.Key,
+				Topic:     pc.topic,
+				Partition: pc.partition,
+				Payload:   msg.Value,
+				Offset:    msg.Offset,
+				Key:       msg.Key,
 			}
 			pc.offsets.Update(pc.topic, pc.partition, msg.Offset)
 		case err := <-pc.sPartConsumer.Errors():
