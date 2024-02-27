@@ -107,7 +107,7 @@ func (cl *client) Partitions(topic string) ([]int32, error) {
 
 // ConsumeTopic implements Client.ConsumeTopic
 func (cl *client) ConsumeTopic(topic string, partition int32) error {
-	logger.Infof("Consuming topic %s", topic)
+	logger.Infof("Consuming topic %s/%d", topic, partition)
 
 	offset, err := cl.offsets.Next(topic, partition)
 	if err != nil {
