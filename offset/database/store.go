@@ -11,8 +11,11 @@ import (
 	"github.com/MauveSoftware/kafkaclient/offset"
 )
 
-func NewStore(db *gorm.DB, persistInterval time.Duration) offset.Store {
-	db.AutoMigrate(&Offset{})
+func NewStore(db *gorm.DB, persistInterval time.Duration) (offset.Store, error) {
+	err := db.AutoMigrate(&Offset{})
+	if err != nil {
+		return nil, fmt.Errorf("auto migration for offset table failed: %w", err)
+	}
 
 	o := &databaseStore{
 		db:     db,
@@ -26,7 +29,7 @@ func NewStore(db *gorm.DB, persistInterval time.Duration) offset.Store {
 		}
 	}()
 
-	return o
+	return o, nil
 }
 
 type key struct {
